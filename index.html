@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스터디 카페 지도 & 즐겨찾기</title>
+    <title>카카오맵 장소 검색 서비스</title>
     <style>
         /* 기본 스타일 초기화 */
         * {
@@ -41,7 +41,7 @@
         /* 검색창 스타일 */
         .search-box {
             display: flex;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         .search-box input {
@@ -62,30 +62,6 @@
             font-weight: bold;
         }
 
-        /* [추가] 즐겨찾기 모아보기 탭 버튼 스타일 */
-        .tab-box {
-            display: flex;
-            margin-bottom: 15px;
-            gap: 5px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 8px;
-            background-color: #eee;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: bold;
-            color: #555;
-        }
-
-        .tab-btn.active {
-            background-color: #4a90e2;
-            color: white;
-        }
-
         /* 검색 결과 리스트 스타일 (스크롤 가능하도록 설정) */
         .places-list {
             flex: 1;
@@ -94,9 +70,7 @@
         }
 
         .place-item {
-            position: relative;
             padding: 15px;
-            padding-right: 50px; /* 하트 버튼 공간 확보 */
             border-bottom: 1px solid #e0e0e0;
             background-color: #fff;
             margin-bottom: 8px;
@@ -112,32 +86,11 @@
         .place-item h4 {
             margin-bottom: 5px;
             color: #333;
-            font-size: 15px;
         }
 
         .place-item p {
             font-size: 13px;
             color: #666;
-            margin-bottom: 2px;
-        }
-
-        /* [추가] 하트(즐겨찾기) 버튼 스타일 */
-        .favorite-btn {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            font-size: 22px;
-            cursor: pointer;
-            outline: none;
-            padding: 5px;
-            transition: transform 0.1s;
-        }
-
-        .favorite-btn:hover {
-            transform: translateY(-50%) scale(1.2);
         }
 
         /* 오른쪽: 지도 영역 (비율 70%) */
@@ -154,15 +107,9 @@
     <div class="container">
         <div class="sidebar">
             <div class="search-box">
-                <input type="text" id="keyword-input" placeholder="스터디카페나 장소를 검색하세요">
+                <input type="text" id="keyword-input" placeholder="장소를 검색해보세요 (예: 강남역맛집)">
                 <button id="search-btn">검색</button>
             </div>
-            
-            <div class="tab-box">
-                <button id="tab-search" class="tab-btn active">검색 결과</button>
-                <button id="tab-favorite" class="tab-btn">❤️ 즐겨찾기</button>
-            </div>
-
             <ul id="places-list" class="places-list"></ul>
         </div>
 
@@ -170,39 +117,43 @@
     </div>
 
     <script>
-        // 전역 변수 선언
+        // 전역 변수 선언 (지도 객체와 장소 검색 객체)
         let map;
         let placeSearch;
         let currentMarkers = []; // 지도에 표시된 마커들을 관리하는 배열
-        let currentSearchData = []; // 현재 검색된 장소들의 데이터를 저장하는 배열
-        let favorites = JSON.parse(localStorage.getItem('스카즐겨찾기')) || []; // 로컬 스토리지에서 즐겨찾기 가져오기
-        let currentTab = 'search'; // 현재 선택된 탭 ('search' 또는 'favorite')
 
-        // 카카오맵 스크립트가 완전히 로드된 후 실행
+        // 카카오맵 스크립트가 안전하게 완전히 로드된 후 실행
         kakao.maps.load(function () {
             initializeMap();
         });
 
         // 지도 초기화 함수
         function initializeMap() {
-            const mapContainer = document.getElementById('map'); 
+            const mapContainer = document.getElementById('map'); // 지도를 표시할 HTML 요소
+            
+            // 기본 중심 좌표 (사용자 위치를 못 가져올 경우를 대비한 기본값: 서울역)
             const defaultPosition = new kakao.maps.LatLng(37.5546788, 126.9706069); 
             
             const mapOptions = {
-                center: defaultPosition, 
-                level: 5 
+                center: defaultPosition, // 지도의 중심좌표
+                level: 5 // 지도 확대 레벨 (요청사항: 5)
             };
 
+            // 지도 생성
             map = new kakao.maps.Map(mapContainer, mapOptions);
+            
+            // 장소 검색 객체 생성
             placeSearch = new kakao.maps.services.Places();
 
             // HTML5의 Geolocation으로 현재 위치를 받아옵니다
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function (position) {
-                    const lat = position.coords.latitude;  
-                    const lon = position.coords.longitude; 
+                    const lat = position.coords.latitude;  // 위도
+                    const lon = position.coords.longitude; // 경도
+                    
                     const currentPosition = new kakao.maps.LatLng(lat, lon);
                     
+                    // 지도의 중심을 현재 위치로 이동시킵니다
                     map.setCenter(currentPosition);
                     
                     // 현재 위치에 표시할 마커 생성
@@ -211,43 +162,27 @@
                         map: map
                     });
                     
+                    // 마커 위에 표시할 인포윈도우 생성
                     const infoWindow = new kakao.maps.InfoWindow({
                         content: '<div style="padding:5px;font-size:12px;text-align:center;">현재 위치</div>'
                     });
                     infoWindow.open(map, currentMarker);
-
-                    // [추가] 접속 시 현재 위치 주변의 '스터디카페'를 자동으로 최초 검색
-                    placeSearch.keywordSearch('스터디카페', placesSearchCB, {
-                        location: currentPosition,
-                        radius: 3000 // 반경 3km 이내 검색
-                    });
                     
                 }, function (error) {
                     console.error("위치 정보를 가져오는 데 실패했습니다.", error);
-                    alert("위치 권한을 허용하지 않아 기본 위치 기준으로 스터디카페를 검색합니다.");
-                    // 위치 실패 시 기본 위치 기준으로 스터디카페 검색
-                    placeSearch.keywordSearch('스터디카페', placesSearchCB);
+                    alert("위치 권한을 허용하지 않아 기본 위치(서울역)로 표시합니다.");
                 });
             } else {
                 alert("이 브라우저에서는 현재 위치 기능을 지원하지 않습니다.");
-                placeSearch.keywordSearch('스터디카페', placesSearchCB);
             }
 
-            // 이벤트 리스너 등록
-            document.getElementById('search-btn').addEventListener('click', function() {
-                switchTab('search');
-                searchPlaces();
-            });
+            // 이벤트 리스너 등록 (검색 버튼 클릭 및 엔터키 입력)
+            document.getElementById('search-btn').addEventListener('click', searchPlaces);
             document.getElementById('keyword-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    switchTab('search');
                     searchPlaces();
                 }
             });
-
-            // [추가] 탭 클릭 이벤트 리스너
-            document.getElementById('tab-search').addEventListener('click', function() { switchTab('search'); });
-            document.getElementById('tab-favorite').addEventListener('click', function() { switchTab('favorite'); });
         }
 
         // 키워드 장소 검색 함수
@@ -259,16 +194,15 @@
                 return;
             }
 
+            // 카카오 장소 검색 API 실행 (결과는 검색 완료 콜백 함수로 전달됨)
             placeSearch.keywordSearch(keyword, placesSearchCB);
         }
 
         // 장소검색이 완료됐을 때 호출되는 콜백 함수
         function placesSearchCB(data, status, pagination) {
             if (status === kakao.maps.services.Status.OK) {
-                currentSearchData = data; // 현재 검색 결과 데이터 보관
-                if (currentTab === 'search') {
-                    displayPlaces(currentSearchData);
-                }
+                // 정상적으로 검색이 완료됐으면 지도와 리스트에 표시합니다
+                displayPlaces(data);
             } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
                 alert('검색 결과가 존재하지 않습니다.');
             } else if (status === kakao.maps.services.Status.ERROR) {
@@ -276,45 +210,32 @@
             }
         }
 
-        // 화면에 리스트와 마커를 표시하는 핵심 함수 (탭에 따라 다르게 작동)
-        function displayPlaces(placesToShow) {
+        // 검색 결과와 마커를 화면에 표시하는 함수
+        function displayPlaces(places) {
             const listElement = document.getElementById('places-list');
             
+            // 기존에 생성되어 있던 마커들과 검색 결과 리스트 초기화
             clearMarkers();
             listElement.innerHTML = '';
 
-            if (placesToShow.length === 0) {
-                const emptyItem = document.createElement('li');
-                emptyItem.style.padding = '20px';
-                emptyItem.style.textAlign = 'center';
-                emptyItem.style.color = '#999';
-                emptyItem.innerText = currentTab === 'search' ? '검색 결과가 없습니다.' : '등록된 즐겨찾기가 없습니다.';
-                listElement.appendChild(emptyItem);
-                return;
-            }
-
+            // 지도를 재조정하기 위한 Bounds(영역) 객체 생성
             const bounds = new kakao.maps.LatLngBounds();
 
-            placesToShow.forEach(function (place) {
+            // 검색된 장소 배열을 반복하면서 처리
+            places.forEach(function (place) {
                 const placePosition = new kakao.maps.LatLng(place.y, place.x);
                 
-                // 지도에 마커 추가
+                // 1. 지도에 마커 추가
                 const marker = new kakao.maps.Marker({
                     position: placePosition,
                     map: map
                 });
-                currentMarkers.push(marker); 
+                currentMarkers.push(marker); // 마커 관리 배열에 저장
+                
+                // 검색된 모든 장소가 보이도록 영역 확장
                 bounds.extend(placePosition);
 
-                // 마커 클릭 시 인포윈도우 표시 이벤트
-                const infoWindow = new kakao.maps.InfoWindow({
-                    content: `<div style="padding:5px;font-size:12px;text-align:center;word-break:keep-all;">${place.place_name}</div>`
-                });
-                kakao.maps.event.addListener(marker, 'click', function() {
-                    infoWindow.open(map, marker);
-                });
-
-                // 왼쪽 사이드바 리스트 아이템 생성
+                // 2. 왼쪽 사이드바에 추가할 리스트 아이템(HTML) 만들기
                 const itemElement = document.createElement('li');
                 itemElement.className = 'place-item';
                 itemElement.innerHTML = `
@@ -323,68 +244,17 @@
                     <p style="color: #999; font-size: 11px;">${place.phone ? place.phone : '전화번호 없음'}</p>
                 `;
 
-                // [추가] 즐겨찾기 상태에 따라 하트 모양 지정 (붉은 하트 / 빈 하트)
-                const isFav = favorites.some(fav => fav.id === place.id);
-                const favBtn = document.createElement('button');
-                favBtn.className = 'favorite-btn';
-                favBtn.innerHTML = isFav ? '❤️' : '🤍';
-                
-                // 하트 버튼 클릭 이벤트 (즐겨찾기 토글)
-                favBtn.addEventListener('click', function(e) {
-                    e.stopPropagation(); // 카드 클릭 이벤트가 실행되지 않도록 방지
-                    toggleFavorite(place, favBtn);
-                });
-                itemElement.appendChild(favBtn);
-
-                // 리스트 아이템 클릭 시 해당 위치로 이동
+                // 리스트 아이템을 클릭했을 때 해당 위치로 지도 이동
                 itemElement.addEventListener('click', function() {
                     map.setCenter(placePosition);
-                    map.setLevel(3);
-                    infoWindow.open(map, marker);
+                    map.setLevel(3); // 클릭 시 조금 더 확대해서 보기
                 });
 
                 listElement.appendChild(itemElement);
             });
 
+            // 검색된 장소들을 한눈에 볼 수 있도록 지도 범위 변경
             map.setBounds(bounds);
-        }
-
-        // [추가] 즐겨찾기 추가/삭제 처리 함수
-        function toggleFavorite(place, btnElement) {
-            const index = favorites.findIndex(fav => fav.id === place.id);
-
-            if (index > -1) {
-                // 이미 즐겨찾기에 있다면 삭제
-                favorites.splice(index, 1);
-                btnElement.innerHTML = '🤍';
-            } else {
-                // 즐겨찾기에 없다면 추가
-                favorites.push(place);
-                btnElement.innerHTML = '❤️';
-            }
-
-            // 로컬 스토리지에 최종 배열 저장 (새로고침해도 유지되도록)
-            localStorage.setItem('스카즐겨찾기', JSON.stringify(favorites));
-
-            // 만약 현재 즐겨찾기 탭을 보고 있다면 리스트를 실시간으로 갱신
-            if (currentTab === 'favorite') {
-                displayPlaces(favorites);
-            }
-        }
-
-        // [추가] 결과 탭 <-> 즐겨찾기 탭 전환 함수
-        function switchTab(tabName) {
-            currentTab = tabName;
-            document.getElementById('tab-search').classList.remove('active');
-            document.getElementById('tab-favorite').classList.remove('active');
-
-            if (tabName === 'search') {
-                document.getElementById('tab-search').classList.add('active');
-                displayPlaces(currentSearchData);
-            } else {
-                document.getElementById('tab-favorite').classList.add('active');
-                displayPlaces(favorites);
-            }
         }
 
         // 지도 위의 마커들을 모두 지우는 함수
